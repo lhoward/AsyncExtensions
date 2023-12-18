@@ -8,6 +8,27 @@
 import AsyncExtensions
 import XCTest
 
+private struct SpyAsyncSequenceForOnNextCall<Element>: AsyncSequence {
+  typealias Element = Element
+  typealias AsyncIterator = Iterator
+  
+  let onNext: () -> Void
+  
+  func makeAsyncIterator() -> AsyncIterator {
+    Iterator(onNext: self.onNext)
+  }
+  
+  struct Iterator: AsyncIteratorProtocol {
+    let onNext: () -> Void
+    
+    func next() async throws -> Element? {
+      self.onNext()
+      try await Task.sleep(nanoseconds: 100_000_000_000)
+      return nil
+    }
+  }
+}
+
 private class SpyAsyncSequenceForNumberOfIterators<Element>: AsyncSequence {
   typealias Element = Element
   typealias AsyncIterator = Iterator
@@ -156,5 +177,4 @@ final class AsyncMulticastSequenceTests: XCTestCase {
       XCTAssertEqual(error as? MockError, expectedError)
     }
   }
-
 }
