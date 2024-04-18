@@ -177,4 +177,46 @@ final class AsyncMulticastSequenceTests: XCTestCase {
       XCTAssertEqual(error as? MockError, expectedError)
     }
   }
+  
+  func test_multicast_finishes_when_task_is_cancelled() {
+    let taskHasFinishedExpectation = expectation(description: "Task has finished")
+    
+    let stream = AsyncThrowingPassthroughSubject<Int, Error>()
+    let sut = [1, 2, 3, 4, 5]
+      .async
+      .multicast(stream)
+      .autoconnect()
+    
+    Task {
+      for try await _ in sut {}
+      taskHasFinishedExpectation.fulfill()
+    }.cancel()
+    
+    wait(for: [taskHasFinishedExpectation], timeout: 1)
+  }
+  
+  func test_multicast_finishes_when_task_is_cancelled_while_waiting_for_next() {
+    let canCancelExpectation = expectation(description: "the task can be cancelled")
+    let taskHasFinishedExpectation = expectation(description: "Task has finished")
+    
+    let spyAsyncSequence = SpyAsyncSequenceForOnNextCall<Int> {
+      canCancelExpectation.fulfill()
+    }
+    
+    let stream = AsyncThrowingPassthroughSubject<Int, Error>()
+    let sut = spyAsyncSequence
+      .multicast(stream)
+      .autoconnect()
+    
+    let task = Task {
+      for try await _ in sut {}
+      taskHasFinishedExpectation.fulfill()
+    }
+    
+    wait(for: [canCancelExpectation], timeout: 1)
+    
+    task.cancel()
+    
+    wait(for: [taskHasFinishedExpectation], timeout: 1)
+  }
 }
