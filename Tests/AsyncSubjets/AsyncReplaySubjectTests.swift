@@ -9,7 +9,7 @@
 import XCTest
 
 final class AsyncReplaySubjectTests: XCTestCase {
-  func test_send_replays_buffered_elements() {
+  func test_send_replays_buffered_elements() async {
     let exp = expectation(description: "Send has stacked elements in the replay the buffer")
     exp.expectedFulfillmentCount = 2
 
@@ -47,10 +47,10 @@ final class AsyncReplaySubjectTests: XCTestCase {
       }
     }
 
-    waitForExpectations(timeout: 0.5)
+    await fulfillment(of: [exp], timeout: 0.5)
   }
 
-  func test_send_pushes_elements_in_the_subject() {
+  func test_send_pushes_elements_in_the_subject() async {
     let hasReceivedOneElementExpectation = expectation(description: "One element has been iterated in the async sequence")
     hasReceivedOneElementExpectation.expectedFulfillmentCount = 2
 
@@ -93,12 +93,12 @@ final class AsyncReplaySubjectTests: XCTestCase {
       }
     }
 
-    wait(for: [hasReceivedOneElementExpectation], timeout: 1)
+    await fulfillment(of: [hasReceivedOneElementExpectation], timeout: 1)
 
     sut.send(2)
     sut.send(3)
 
-    wait(for: [hasReceivedSentElementsExpectation], timeout: 1)
+    await fulfillment(of: [hasReceivedSentElementsExpectation], timeout: 1)
   }
 
   func test_sendFinished_ends_the_subject_and_immediately_resumes_futur_consumer() async {
@@ -141,7 +141,7 @@ final class AsyncReplaySubjectTests: XCTestCase {
     XCTAssertNil(received)
   }
 
-  func test_subject_finishes_when_task_is_cancelled() {
+  func test_subject_finishes_when_task_is_cancelled() async {
     let canCancelExpectation = expectation(description: "The first element has been emitted")
     let hasCancelExceptation = expectation(description: "The task has been cancelled")
     let taskHasFinishedExpectation = expectation(description: "The task has finished")
@@ -161,13 +161,13 @@ final class AsyncReplaySubjectTests: XCTestCase {
       taskHasFinishedExpectation.fulfill()
     }
 
-    wait(for: [canCancelExpectation], timeout: 5) // one element has been emitted, we can cancel the task
+    await fulfillment(of: [canCancelExpectation], timeout: 5) // one element has been emitted, we can cancel the task
 
     task.cancel()
 
     hasCancelExceptation.fulfill() // we can release the lock in the for loop
 
-    wait(for: [taskHasFinishedExpectation], timeout: 5) // task has been cancelled and has finished
+    await fulfillment(of: [taskHasFinishedExpectation], timeout: 5) // task has been cancelled and has finished
   }
 
   func test_subject_handles_concurrency() async {

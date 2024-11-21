@@ -24,7 +24,7 @@ final class AsyncPrependSequenceTests: XCTestCase {
     XCTAssertEqual(receivedResult, expectedResult)
   }
   
-  func testPrepend_finishes_when_task_is_cancelled() {
+  func testPrepend_finishes_when_task_is_cancelled() async {
     let canCancelExpectation = expectation(description: "The first element has been emitted")
     let hasCancelExceptation = expectation(description: "The task has been cancelled")
     let taskHasFinishedExpectation = expectation(description: "The task has finished")
@@ -44,12 +44,12 @@ final class AsyncPrependSequenceTests: XCTestCase {
       taskHasFinishedExpectation.fulfill()
     }
     
-    wait(for: [canCancelExpectation], timeout: 5) // one element has been emitted, we can cancel the task
+    await fulfillment(of: [canCancelExpectation], timeout: 5) // one element has been emitted, we can cancel the task
     
     task.cancel()
     
     hasCancelExceptation.fulfill() // we can release the lock in the for loop
     
-    wait(for: [taskHasFinishedExpectation], timeout: 5) // task has been cancelled and has finished
+    await fulfillment(of: [taskHasFinishedExpectation], timeout: 5) // task has been cancelled and has finished
   }
 }

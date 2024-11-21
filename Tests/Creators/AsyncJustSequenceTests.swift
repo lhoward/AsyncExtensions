@@ -22,7 +22,7 @@ final class AsyncJustSequenceTests: XCTestCase {
     XCTAssertEqual(receivedResult, [element])
   }
 
-  func test_AsyncJustSequence_returns_an_asyncSequence_that_finishes_without_elements_when_task_is_cancelled() {
+  func test_AsyncJustSequence_returns_an_asyncSequence_that_finishes_without_elements_when_task_is_cancelled() async {
     let hasCancelledExpectation = expectation(description: "The task has been cancelled")
     let hasFinishedExpectation = expectation(description: "The AsyncSequence has finished")
 
@@ -40,6 +40,6 @@ final class AsyncJustSequenceTests: XCTestCase {
 
     hasCancelledExpectation.fulfill()
 
-    wait(for: [hasFinishedExpectation], timeout: 1)
+    await fulfillment(of: [hasFinishedExpectation], timeout: 1)
   }
 }
