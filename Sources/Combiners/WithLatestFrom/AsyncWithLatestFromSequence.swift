@@ -158,7 +158,7 @@ where Other: Sendable, Other.Element: Sendable {
       } onCancel: { [otherTask] in
         otherTask?.cancel()
       }
-    }
+   }
   }
 }
 
