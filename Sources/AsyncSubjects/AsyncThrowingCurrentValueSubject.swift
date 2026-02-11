@@ -138,6 +138,7 @@ public final class AsyncThrowingCurrentValueSubject<Element, Failure: Error>: As
   public struct Iterator: AsyncSubjectIterator {
     var iterator: AsyncThrowingBufferedChannel<Element, Error>.Iterator
     let unregister: @Sendable () -> Void
+    var isFinished = false
 
     init(asyncSubject: AsyncThrowingCurrentValueSubject) {
       (self.iterator, self.unregister) = asyncSubject.handleNewConsumer()
@@ -148,11 +149,30 @@ public final class AsyncThrowingCurrentValueSubject<Element, Failure: Error>: As
     }
 
     public mutating func next() async throws -> Element? {
-      try await withTaskCancellationHandler {
-        try await self.iterator.next()
-      } onCancel: { [unregister] in
+      // Don't proceed if we've already finished
+      guard !isFinished else { return nil }
+
+      let result: Element?
+      do {
+        result = try await withTaskCancellationHandler {
+          try await self.iterator.next()
+        } onCancel: { [unregister] in
+          unregister()
+        }
+      } catch {
+        // On error, mark as finished and unregister before rethrowing
+        isFinished = true
+        unregister()
+        throw error
+      }
+
+      // If iteration completed normally (returned nil), unregister the channel
+      if result == nil {
+        isFinished = true
         unregister()
       }
+
+      return result
     }
   }
 }

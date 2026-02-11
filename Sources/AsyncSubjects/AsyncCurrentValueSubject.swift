@@ -127,6 +127,7 @@ public final class AsyncCurrentValueSubject<Element>: AsyncSubject where Element
   public struct Iterator: AsyncSubjectIterator {
     var iterator: AsyncBufferedChannel<Element>.Iterator
     let unregister: @Sendable () -> Void
+    var isFinished = false
 
     init(asyncSubject: AsyncCurrentValueSubject) {
       (self.iterator, self.unregister) = asyncSubject.handleNewConsumer()
@@ -137,11 +138,22 @@ public final class AsyncCurrentValueSubject<Element>: AsyncSubject where Element
     }
 
     public mutating func next() async -> Element? {
-      await withTaskCancellationHandler {
+      // Don't proceed if we've already finished
+      guard !isFinished else { return nil }
+
+      let result = await withTaskCancellationHandler {
         await self.iterator.next()
       } onCancel: { [unregister] in
         unregister()
       }
+
+      // If iteration completed normally (returned nil), unregister the channel
+      if result == nil {
+        isFinished = true
+        unregister()
+      }
+
+      return result
     }
   }
 }
