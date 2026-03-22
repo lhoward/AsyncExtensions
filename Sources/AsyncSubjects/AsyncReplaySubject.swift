@@ -78,33 +78,32 @@ public final class AsyncReplaySubject<Element>: AsyncSubject where Element: Send
 
   func handleNewConsumer() -> (iterator: AsyncBufferedChannel<Element>.Iterator, unregister: @Sendable () -> Void) {
     let asyncBufferedChannel = AsyncBufferedChannel<Element>()
+    var consumerId: Int!
+    var unregister: (@Sendable () -> Void)?
 
-    let (terminalState, elements) = self.state.withCriticalRegion { state in
-      (state.terminalState, state.buffer)
-    }
-
-    if let terminalState = terminalState, terminalState.isFinished {
-      asyncBufferedChannel.finish()
-      return (asyncBufferedChannel.makeAsyncIterator(), {})
-    }
-
-    for element in elements {
-      asyncBufferedChannel.send(element)
-    }
-
-    let consumerId = self.state.withCriticalRegion { state -> Int in
-      state.ids += 1
-      state.channels[state.ids] = asyncBufferedChannel
-      return state.ids
-    }
-
-    let unregister = { @Sendable [state] in
-      state.withCriticalRegion { state in
-        state.channels[consumerId] = nil
+    self.state.withCriticalRegion { state in
+      let terminalState = state.terminalState
+      if let terminalState, terminalState.isFinished {
+        asyncBufferedChannel.finish()
+      } else {
+        for element in state.buffer {
+          asyncBufferedChannel.send(element)
+        }
+        state.ids &+= 1
+        consumerId = state.ids
+        state.channels[consumerId] = asyncBufferedChannel
       }
     }
 
-    return (asyncBufferedChannel.makeAsyncIterator(), unregister)
+    if let consumerId {
+      unregister = { @Sendable [state, consumerId] in
+        state.withCriticalRegion { state in
+          state.channels[consumerId] = nil
+        }
+      }
+    }
+
+    return (asyncBufferedChannel.makeAsyncIterator(), unregister ?? {})
   }
 
   public func makeAsyncIterator() -> AsyncIterator {
