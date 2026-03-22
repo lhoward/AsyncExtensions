@@ -100,35 +100,35 @@ public final class AsyncThrowingCurrentValueSubject<Element, Failure: Error>: As
   func handleNewConsumer(
   ) -> (iterator: AsyncThrowingBufferedChannel<Element, Error>.Iterator, unregister: @Sendable () -> Void) {
     let asyncBufferedChannel = AsyncThrowingBufferedChannel<Element, Error>()
+    var consumerId: Int!
+    var unregister: (@Sendable () -> Void)?
 
-    let terminalState = self.state.withCriticalRegion { state -> Termination? in
-      state.terminalState
-    }
-
-    if let terminalState = terminalState {
-      switch terminalState {
-        case .finished:
-          asyncBufferedChannel.finish()
-        case .failure(let error):
-          asyncBufferedChannel.fail(error)
-      }
-      return (asyncBufferedChannel.makeAsyncIterator(), {})
-    }
-
-    let consumerId = self.state.withCriticalRegion { state -> Int in
-      state.ids += 1
-      state.channels[state.ids] = asyncBufferedChannel
-      asyncBufferedChannel.send(state.current)
-      return state.ids
-    }
-
-    let unregister = { @Sendable [state] in
-      state.withCriticalRegion { state in
-        state.channels[consumerId] = nil
+    self.state.withCriticalRegion { state in
+      let terminalState = state.terminalState
+      if let terminalState {
+        switch terminalState {
+          case .finished:
+            asyncBufferedChannel.finish()
+          case .failure(let error):
+            asyncBufferedChannel.fail(error)
+        }
+      } else {
+        state.ids &+= 1
+        consumerId = state.ids
+        state.channels[consumerId] = asyncBufferedChannel
+        asyncBufferedChannel.send(state.current)
       }
     }
 
-    return (asyncBufferedChannel.makeAsyncIterator(), unregister)
+    if let consumerId {
+      unregister = { @Sendable [state, consumerId] in
+        state.withCriticalRegion { state in
+          state.channels[consumerId] = nil
+        }
+      }
+    }
+
+    return (asyncBufferedChannel.makeAsyncIterator(), unregister ?? {})
   }
 
   public func makeAsyncIterator() -> AsyncIterator {
