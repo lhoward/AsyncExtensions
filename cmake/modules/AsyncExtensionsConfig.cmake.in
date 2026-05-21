@@ -1,0 +1,21 @@
+#[[
+This source file is part of the AsyncExtensions open source project
+
+Copyright (c) 2024 The AsyncExtensions project authors
+Licensed under MIT License
+
+See https://github.com/sideeffect-io/AsyncExtensions/blob/main/LICENSE for license information
+#]]
+
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+
+find_dependency(SwiftCollections)
+find_dependency(SwiftAtomics)
+
+include("${CMAKE_CURRENT_LIST_DIR}/AsyncExtensionsTargets.cmake")
+
+check_required_components(AsyncExtensions)
